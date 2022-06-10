@@ -5,9 +5,17 @@ use serde::de::{Deserialize, DeserializeSeed, Deserializer, SeqAccess, Visitor};
 // use serde_json::{Result, Value};
 use std::str::FromStr;
 
-mod seed_structs_example;
+extern crate serde_json;
+extern crate serde_state ;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive_state;
 
+// 
+mod seed_structs_example;
 mod seed_vec_example;
+mod serde_with_state;
 
 #[derive(serde::Deserialize)]
 struct MyType {
@@ -113,8 +121,9 @@ fn main() {
     println!("Hello, world!");
 
     // 
-    seed_structs_example::main();
-    seed_vec_example::main();
+    // seed_structs_example::main();
+    // seed_vec_example::main();
+    serde_with_state::main();
 
     // let raw_json = r#"
     //     {

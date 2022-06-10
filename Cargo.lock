@@ -46,7 +46,10 @@ name = "serde_de_seed_examples"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_derive",
+ "serde_derive_state",
  "serde_json",
+ "serde_state",
 ]
 
 [[package]]
@@ -61,6 +64,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_derive_state"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bda1ea9a4f7c5304e85a1d878457087121ee7be0bef4a3315c14827325e8b12"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -68,6 +82,15 @@ checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
 dependencies = [
  "itoa",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_state"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "740753f904603d9f3b7130b13125be3a470aca9e6616da18cb96d9291bd6a72a"
+dependencies = [
  "serde",
 ]
 
