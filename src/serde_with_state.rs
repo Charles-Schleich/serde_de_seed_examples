@@ -1,8 +1,9 @@
+use serde::de::{Visitor, SeqAccess, self, MapAccess};
 use serde_state::de::{Deserialize, DeserializeState, Deserializer};
 use serde_state::ser::{Serialize, SerializeState, Serializer};
 use std::borrow::BorrowMut;
 use std::cell::Cell;
-use std::fmt::Debug;
+use std::fmt::{Debug, self};
 
 #[derive(Deserialize, Serialize, Debug)]
 struct Inner(i32);
@@ -130,14 +131,57 @@ impl<'de> DeserializeState<'de,MyEnum> for Struct {
     where
         D: Deserializer<'de>, 
         {
-            println!("{:?}",seed);
+            println!("{:?}",seed); 
+            
+            let output_res = deserializer.deserialize_struct("value3", &["inner_val" ,"inner_val2" ,"inner_enum"], Inner2Visitor(*seed));
+            
+            println!("output_res {:?}", output_res); 
+
+            let output = output_res.unwrap(); 
         Ok(Struct{
                 value: Inner(123),
                 value2: *seed,
+                value3: output
             })
     }
 }
 
+struct Inner2Visitor(MyEnum);
+
+impl<'de> DeserializeState<'de,MyEnum> for Inner2 {
+    fn deserialize_state<D>(seed: &mut MyEnum, deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>, 
+        {
+            println!("{:?}",seed);
+
+            impl<'de> Visitor<'de> for Inner2Visitor {
+                type Value = Inner2;
+    
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("struct Inner2")
+                }
+    
+                fn visit_map<V>(self, mut map: V) -> Result<Inner2, V::Error>
+                where
+                    V: MapAccess<'de>,
+                {
+
+                    Ok(Inner2{
+                        inner_val: 123,
+                        inner_val2: 123,
+                        inner_enum: self.0,
+                    })
+                }
+            }
+    
+            Ok(Inner2{
+                inner_val: 123,
+                inner_val2: 123,
+                inner_enum: *seed,
+            })
+    }
+}
 
 
 #[derive(SerializeState,Debug)]
@@ -148,9 +192,9 @@ impl<'de> DeserializeState<'de,MyEnum> for Struct {
 #[serde(deserialize_state = "S")]
 struct Struct {
     // The `serialize_state` attribute must be specified to use seeded serialization
-    #[serde(serialize_state)]
+    // #[serde(serialize_state)]
     // The `deserialize_state` attribute must be specified to use seeded deserialization
-    #[serde(deserialize_state)]
+    // #[serde(deserialize_state)]
     value: Inner,
 
     // The `seed` attribute can be used to specify `deserialize_state` and `serialize_state`
@@ -158,6 +202,10 @@ struct Struct {
     #[serde(state)]
     // #[serde(deserialize_state)]
     value2: MyEnum,
+
+    #[serde(state)]
+    // #[serde(deserialize_state)]
+    value3: Inner2,
 
     // // If no attributes are specified then normal serialization and/or deserialization is used
     // value3: Inner,
@@ -167,6 +215,20 @@ struct Struct {
     // #[serde(serialize_state_with = "serialize_inner")]
     // value4: Inner,
 }
+
+#[derive(SerializeState,Debug)]
+#[serde(serialize_state = "Cell<MyEnum>")]
+// `de_parameters` can be used to specify additional type parameters for the derived instance
+#[serde(de_parameters = "Z")]
+#[serde(bound(deserialize = "Z: MyEnum"))]
+#[serde(deserialize_state = "Z")]
+struct Inner2 {
+    inner_val: u64, 
+    inner_val2: i32,
+    #[serde(state)]
+    inner_enum: MyEnum
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,6 +280,11 @@ pub fn main() {
         // value3: Inner(1),
         // value4: Inner(0),
         value2: MyEnum::Variant1,
+        value3: Inner2 {
+            inner_val: 1, 
+            inner_val2: 2,
+            inner_enum: MyEnum::Variant1
+        }
     };
 
     let mut buffer = Vec::new();
@@ -228,7 +295,8 @@ pub fn main() {
         struct_s.serialize_state(&mut serializer, &seed).unwrap();
         // assert_eq!(seed.get(), 12);
         println!("{:?}", seed.get());
-
+        println!("{:?}", buffer);
+        
     }
 
     {
