@@ -1,3 +1,4 @@
+use serde::de::IgnoredAny;
 use serde_state::de::{MapAccess, Visitor};
 
 use serde_state::de::{Deserialize, DeserializeState, Deserializer};
@@ -81,6 +82,19 @@ impl<'de> DeserializeState<'de, MyEnum> for Struct {
                 println!("{:?}", val2);
 
                 let (opt3, inner_val_inner) = map.next_entry::<String, Inner2>()?.unwrap();
+                
+                // map.
+                let seed = self.0;
+
+                // Inner2::deserialize_state(&mut seed, map);
+
+                // let mut deserializer = serde_json::Deserializer::from_slice(&buffer);
+                // // let mut seed = 0;
+                // let mut seed_enum = MyEnum::Variant2;
+                // println!("Input ! {:?}", struct_s);
+                // let x = Struct::deserialize_state(&mut seed_enum, &mut deserializer).unwrap();
+                // println!("Output {:?}", x);
+
                 println!("{:?}", opt3);
                 println!("End");
 
@@ -92,8 +106,10 @@ impl<'de> DeserializeState<'de, MyEnum> for Struct {
             }
             // fn visit_
         }
+
         const FIELDS: &'static [&'static str] = &["value", "value2", "value3"];
         deserializer.deserialize_struct("Struct", FIELDS, InnerStruct(*seed))
+
     }
 }
 
@@ -144,26 +160,23 @@ impl<'de> Deserialize<'de> for Inner2 {
                     ));
                 };
 
-                if let Some((_, inner_val2_enum)) = map.next_entry::<String, MyEnum>()? {
-                    // println!("Inside inner_val_key");
-                    // inner_val_enum = inner_val2_enum;
-                } else {
-                    return Err(serde::de::Error::custom(
-                        "Could not deserialize inner_enum field",
-                    ));
-                };
+                // Ignore the rest of the elements in the map
+                while let Some(_) = map.next_entry::<IgnoredAny, IgnoredAny>()? {};
+
                 println!("Inside visit_Map Inner2Visitor2");
                 // println!("Map Visitor {:?} ", inner_val );
                 Ok(Inner2 {
                     inner_val,
                     inner_val2,
-                    inner_enum: MyEnum::Variant3,
+                    inner_enum: MyEnum::Variant4,
                 })
             }
         }
+
         println!("Inside Inner2 normal DeserializeFunction");
         const FIELDS: &'static [&'static str] = &["inner_val", "inner_val2", "inner_enum"];
         deserializer.deserialize_struct("Inner2", FIELDS, Inner2Visitor2)
+        
     }
 }
 
@@ -269,7 +282,7 @@ pub fn main() {
 
     let mut buffer = Vec::new();
     {
-        let mut serializer = serde_json::Serializer::new(&mut buffer);
+        let mut serializer = serde_json::Serializer::pretty(&mut buffer);
         let seed = Cell::new(MyEnum::Variant1);
         // let seed = Cell::new(0);
         struct_s.serialize_state(&mut serializer, &seed).unwrap();
