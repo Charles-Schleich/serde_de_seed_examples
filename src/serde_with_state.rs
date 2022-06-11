@@ -126,23 +126,75 @@ impl SerializeState<Cell<MyEnum>> for MyEnum {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+struct InnerStruct(MyEnum);
+
 impl<'de> DeserializeState<'de,MyEnum> for Struct {
     fn deserialize_state<D>(seed: &mut MyEnum, deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>, 
         {
-            println!("{:?}",seed); 
-            
-            let output_res = deserializer.deserialize_struct("value3", &["inner_val" ,"inner_val2" ,"inner_enum"], Inner2Visitor(*seed));
-            
-            println!("output_res {:?}", output_res); 
+          
+            impl<'de> Visitor<'de> for InnerStruct {
+                type Value = Struct;
+    
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("struct InnerStruct")
+                }
+    
+                fn visit_map<V>(self, mut map: V) -> Result<Struct, V::Error>
+                where
+                    V: MapAccess<'de>,
+                {
+                    // println!("inside Visit map for Inner2 {:?} ", self.0);
+                    // let inner_val = map.next_key::<u64>()?; 
+                    // println!("Map Visitor {:?} ", inner_val );
+                    // println!("inside Visit map for Inner2 {:?} ", self.0);
+                    println!("Internal Seed{:?}",self.0); 
+                    println!("Internal visit map called for InnerStruct"); 
+                    let opt= map.next_entry::<String,i32>()?;
+                    println!("{:?}",opt); 
 
-            let output = output_res.unwrap(); 
-        Ok(Struct{
-                value: Inner(123),
-                value2: *seed,
-                value3: output
-            })
+                    let opt2= map.next_entry::<String,MyEnum>()?;
+                    println!("{:?}",opt2); 
+
+                    let opt3= map.next_key::<String>();
+                    println!("{:?}",opt3); 
+                   
+                    // let opt2= map.next_entry::<String,Inner2>()?;
+                    // println!("{:?}",opt2); 
+                    
+                    println!("End"); 
+                    // const FIELDS: &'static [&'static str] = &["inner_val" ,"inner_val2" ,"inner_enum"];
+                    // let output_res = deserializer.deserialize_struct("value2", FIELDS, Inner2Visitor(self.0));
+                    // println!("output_res {:?}", output_res); 
+                    // let output = output_res.unwrap(); 
+
+                    let temp_inner = Inner2{ inner_val: 3, inner_val2: 4, inner_enum: MyEnum::Variant2 };
+
+                    Ok(Struct{
+                        value: 123,
+                        value2: self.0,
+                        value3: temp_inner
+                    })
+                }
+                // fn visit_
+            }
+            
+            // println!("{:?}",seed); 
+            // const FIELDS: &'static [&'static str] = &["inner_val" ,"inner_val2" ,"inner_enum"];
+            // let output_res = deserializer.deserialize_struct("value2", FIELDS, Inner2Visitor(*seed));
+            // println!("output_res {:?}", output_res); 
+            // let output = output_res.unwrap(); 
+        //     let temp_inner = Inner2{ inner_val: 1, inner_val2: 2, inner_enum: MyEnum::Variant2 };
+        // Ok(Struct{
+        //         value: 123,
+        //         value2: *seed,
+        //         value3: temp_inner
+        //     })
+
+        const FIELDS: &'static [&'static str] = &["value","value2","value3"];
+        deserializer.deserialize_struct("Struct", FIELDS, InnerStruct(*seed))
+
     }
 }
 
@@ -153,19 +205,23 @@ impl<'de> DeserializeState<'de,MyEnum> for Inner2 {
     where
         D: Deserializer<'de>, 
         {
-            println!("{:?}",seed);
+            println!("Inner seed {:?}",seed);
 
             impl<'de> Visitor<'de> for Inner2Visitor {
                 type Value = Inner2;
     
                 fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("struct Inner2")
+                    formatter.write_str("struct Inner2Visitor")
                 }
     
                 fn visit_map<V>(self, mut map: V) -> Result<Inner2, V::Error>
                 where
                     V: MapAccess<'de>,
                 {
+                    println!("inside Visit map for Inner2 {:?} ", self.0);
+                    let inner_val = map.next_key::<u64>()?; 
+                    println!("Map Visitor {:?} ", inner_val );
+                    println!("inside Visit map for Inner2 {:?} ", self.0);
 
                     Ok(Inner2{
                         inner_val: 123,
@@ -175,9 +231,13 @@ impl<'de> DeserializeState<'de,MyEnum> for Inner2 {
                 }
             }
     
+            println!("End return inside Visit map for Inner2 {:?} ", *seed);
+        
+            // const FIELDS: &'static [&'static str] = &["value","value2","value3"];
+            // deserializer.deserialize_struct("Struct", FIELDS, Inner2Visitor(*seed))
             Ok(Inner2{
-                inner_val: 123,
-                inner_val2: 123,
+                inner_val: 321,
+                inner_val2: 321,
                 inner_enum: *seed,
             })
     }
@@ -195,7 +255,8 @@ struct Struct {
     // #[serde(serialize_state)]
     // The `deserialize_state` attribute must be specified to use seeded deserialization
     // #[serde(deserialize_state)]
-    value: Inner,
+    value: i32,
+    // value: Inner,
 
     // The `seed` attribute can be used to specify `deserialize_state` and `serialize_state`
     // simultaneously
@@ -204,7 +265,6 @@ struct Struct {
     value2: MyEnum,
 
     #[serde(state)]
-    // #[serde(deserialize_state)]
     value3: Inner2,
 
     // // If no attributes are specified then normal serialization and/or deserialization is used
@@ -275,7 +335,7 @@ enum MyEnum {
 
 pub fn main() {
     let struct_s = Struct {
-        value: Inner(0),
+        value: 0,
         // value2: Inner(0),
         // value3: Inner(1),
         // value4: Inner(0),
@@ -289,17 +349,22 @@ pub fn main() {
 
     let mut buffer = Vec::new();
     {
-        let mut serializer = serde_json::Serializer::pretty(&mut buffer);
+        let mut serializer = serde_json::Serializer::new(&mut buffer);
         let seed = Cell::new(MyEnum::Variant1);
         // let seed = Cell::new(0);
         struct_s.serialize_state(&mut serializer, &seed).unwrap();
         // assert_eq!(seed.get(), 12);
         println!("{:?}", seed.get());
-        println!("{:?}", buffer);
+        println!("Buffer {:?}", buffer);
+        let string_buff = String::from_utf8(buffer.clone()).unwrap();
+        println!("String Buffer {} ",string_buff);
+        println!("Buffer ========");
+
         
     }
 
     {
+
         let mut deserializer = serde_json::Deserializer::from_slice(&buffer);
         // let mut seed = 0;
         let mut seed_enum = MyEnum::Variant2;
