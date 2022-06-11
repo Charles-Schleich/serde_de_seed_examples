@@ -1,6 +1,10 @@
-use serde::de::{Visitor, SeqAccess, self, MapAccess};
+// use serde::de::{Visitor, SeqAccess, self, MapAccess};
+use serde_state::de::{Visitor, MapAccess};
+
 use serde_state::de::{Deserialize, DeserializeState, Deserializer};
 use serde_state::ser::{Serialize, SerializeState, Serializer};
+
+
 use std::borrow::BorrowMut;
 use std::cell::Cell;
 use std::fmt::{Debug, self};
@@ -149,52 +153,89 @@ impl<'de> DeserializeState<'de,MyEnum> for Struct {
                     // let inner_val = map.next_key::<u64>()?; 
                     // println!("Map Visitor {:?} ", inner_val );
                     // println!("inside Visit map for Inner2 {:?} ", self.0);
-                    println!("Internal Seed{:?}",self.0); 
+                    println!("Internal Seed {:?}",self.0); 
                     println!("Internal visit map called for InnerStruct"); 
-                    let opt= map.next_entry::<String,i32>()?;
-                    println!("{:?}",opt); 
+                    let (_,val)= map.next_entry::<String,i32>()?.unwrap();
+                    println!("val: {:?}",val ); 
 
-                    let opt2= map.next_entry::<String,MyEnum>()?;
-                    println!("{:?}",opt2); 
+                    let (_,val2)= map.next_entry::<String,MyEnum>()?.unwrap();
+                    println!("{:?}",val2); 
 
-                    let opt3= map.next_key::<String>();
-                    println!("{:?}",opt3); 
-                   
-                    // let opt2= map.next_entry::<String,Inner2>()?;
-                    // println!("{:?}",opt2); 
-                    
+                    let (opt3, inner_val_inner )= map.next_entry::<String,Inner2>()?.unwrap();
+                    println!("{:?}",opt3);                     
                     println!("End"); 
-                    // const FIELDS: &'static [&'static str] = &["inner_val" ,"inner_val2" ,"inner_enum"];
-                    // let output_res = deserializer.deserialize_struct("value2", FIELDS, Inner2Visitor(self.0));
-                    // println!("output_res {:?}", output_res); 
-                    // let output = output_res.unwrap(); 
-
-                    let temp_inner = Inner2{ inner_val: 3, inner_val2: 4, inner_enum: MyEnum::Variant2 };
 
                     Ok(Struct{
-                        value: 123,
-                        value2: self.0,
-                        value3: temp_inner
+                        val,
+                        val2,
+                        val3: inner_val_inner
                     })
                 }
                 // fn visit_
             }
-            
-            // println!("{:?}",seed); 
-            // const FIELDS: &'static [&'static str] = &["inner_val" ,"inner_val2" ,"inner_enum"];
-            // let output_res = deserializer.deserialize_struct("value2", FIELDS, Inner2Visitor(*seed));
-            // println!("output_res {:?}", output_res); 
-            // let output = output_res.unwrap(); 
-        //     let temp_inner = Inner2{ inner_val: 1, inner_val2: 2, inner_enum: MyEnum::Variant2 };
-        // Ok(Struct{
-        //         value: 123,
-        //         value2: *seed,
-        //         value3: temp_inner
-        //     })
-
         const FIELDS: &'static [&'static str] = &["value","value2","value3"];
         deserializer.deserialize_struct("Struct", FIELDS, InnerStruct(*seed))
 
+    }
+}
+
+
+struct Inner2Visitor2;
+
+impl<'de> Deserialize<'de> for Inner2{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de> {
+
+            impl<'de> Visitor<'de> for Inner2Visitor2 {
+                type Value = Inner2;
+    
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("struct Inner2Visitor")
+                }
+    
+                fn visit_map<V>(self, mut map: V) -> Result<Inner2, V::Error>
+                where
+                    V: MapAccess<'de>,
+                {
+                    println!("Inside visit_Map Inner2Visitor2 " );
+                    // println!("inside Visit map for Inner2 {:?} ", self.0);
+                    let inner_val;
+                    if let Some((_,inner_val_inner)) = map.next_entry::<String, u64>()?{
+                        println!("Inside inner_val_key");
+                        inner_val = inner_val_inner;
+                    } else{
+                        return Err(serde::de::Error::custom("Could not deserialize inner_val field as u64"));
+                    };
+
+                    ///////////////////////
+                    let inner_val2;
+                    if let Some((_,inner_val2_inner)) = map.next_entry::<String, i32>()?{
+                        println!("Inside inner_val_key");
+                        inner_val2 = inner_val2_inner;
+                    } else{
+                        return Err(serde::de::Error::custom("Could not deserialize inner_val2 field"));
+                    };
+
+                    if let Some((_,inner_val2_enum)) = map.next_entry::<String, MyEnum>()?{
+                        // println!("Inside inner_val_key");
+                        // inner_val_enum = inner_val2_enum;
+                    } else{
+                        return Err(serde::de::Error::custom("Could not deserialize inner_enum field"));
+                    };
+                    println!("Inside visit_Map Inner2Visitor2");
+                    // println!("Map Visitor {:?} ", inner_val );
+                    Ok(Inner2{
+                        inner_val,
+                        inner_val2,
+                        inner_enum: MyEnum::Variant3,
+                    })
+                }
+            }
+            println!("Inside Inner2 normal DeserializeFunction");
+            const FIELDS: &'static [&'static str] = &["inner_val","inner_val2","inner_enum"];
+            deserializer.deserialize_struct("Inner2", FIELDS, Inner2Visitor2)
+    
     }
 }
 
@@ -233,13 +274,13 @@ impl<'de> DeserializeState<'de,MyEnum> for Inner2 {
     
             println!("End return inside Visit map for Inner2 {:?} ", *seed);
         
-            // const FIELDS: &'static [&'static str] = &["value","value2","value3"];
-            // deserializer.deserialize_struct("Struct", FIELDS, Inner2Visitor(*seed))
-            Ok(Inner2{
-                inner_val: 321,
-                inner_val2: 321,
-                inner_enum: *seed,
-            })
+            const FIELDS: &'static [&'static str] = &["value","value2","value3"];
+            deserializer.deserialize_struct("Struct", FIELDS, Inner2Visitor(*seed))
+            // Ok(Inner2{
+            //     inner_val: 321,
+            //     inner_val2: 321,
+            //     inner_enum: *seed,
+            // })
     }
 }
 
@@ -251,29 +292,14 @@ impl<'de> DeserializeState<'de,MyEnum> for Inner2 {
 #[serde(bound(deserialize = "S: MyEnum"))]
 #[serde(deserialize_state = "S")]
 struct Struct {
-    // The `serialize_state` attribute must be specified to use seeded serialization
-    // #[serde(serialize_state)]
-    // The `deserialize_state` attribute must be specified to use seeded deserialization
-    // #[serde(deserialize_state)]
-    value: i32,
+    val: i32,
     // value: Inner,
-
-    // The `seed` attribute can be used to specify `deserialize_state` and `serialize_state`
-    // simultaneously
     #[serde(state)]
     // #[serde(deserialize_state)]
-    value2: MyEnum,
+    val2: MyEnum,
 
     #[serde(state)]
-    value3: Inner2,
-
-    // // If no attributes are specified then normal serialization and/or deserialization is used
-    // value3: Inner,
-
-    // // The `[de]serialize_state_with` attribute can be used to specify a custom function which
-    // // does the serialization or deserialization
-    // #[serde(serialize_state_with = "serialize_inner")]
-    // value4: Inner,
+    val3: Inner2,
 }
 
 #[derive(SerializeState,Debug)]
@@ -289,58 +315,23 @@ struct Inner2 {
     inner_enum: MyEnum
 }
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// 
-// impl<'de, S> DeserializeState<'de, S> for DummyType
-// where
-//     S: BorrowMut<i32>,
-// {
-//     fn deserialize_state<D>(seed: &mut S, deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         *seed.borrow_mut() += 1;
-//         Self::deserialize(deserializer)
-//     }
-// }
-
-// #[derive(Deserialize, Serialize)]
-// struct DummyType;
-
-// #[derive(DeserializeState,SerializeState)]
-// // `serialize_state` or `deserialize_state` is necessary to tell the derived implementation which
-// // seed that is passed
-// // #[serde(serialize_state = "Cell<i32>")]
-// #[serde(de_parameters = "Z")]
-// #[serde(bound(deserialize = "Z: BorrowMut<i32>"))]
-// #[serde(deserialize_state = "Z")]
-// struct MyType {
-//     foo: String,
-
-//     #[serde(serialize_state)]
-//     #[serde(deserialize_state)]
-//     my_enum: MyEnum,
-// }
-
 #[derive(serde::Serialize,serde::Deserialize,Copy,Clone,Debug)]
 enum MyEnum {
     Variant1,
     Variant2,
     Variant3,
+    Variant4,
 }
 
 
 pub fn main() {
     let struct_s = Struct {
-        value: 0,
+        val: 0,
         // value2: Inner(0),
         // value3: Inner(1),
         // value4: Inner(0),
-        value2: MyEnum::Variant1,
-        value3: Inner2 {
+        val2: MyEnum::Variant1,
+        val3: Inner2 {
             inner_val: 1, 
             inner_val2: 2,
             inner_enum: MyEnum::Variant1
