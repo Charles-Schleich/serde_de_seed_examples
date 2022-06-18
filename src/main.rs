@@ -6,9 +6,11 @@ extern crate serde_derive;
 extern crate serde_derive_state;
 
 mod serde_with_state;
+mod serde_map_to_seq;
 
 fn main() {
     println!("Hello, world!");
-    serde_with_state::main();
+    // serde_with_state::main();
+    serde_map_to_seq::main();
 }
 
