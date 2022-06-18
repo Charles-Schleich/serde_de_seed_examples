@@ -8,6 +8,8 @@ use std::borrow::BorrowMut;
 use std::cell::Cell;
 use std::fmt::{self, Debug};
 
+use crate::serde_with_state;
+
 #[derive(Deserialize, Serialize, Debug)]
 struct Inner(i32);
 
@@ -68,25 +70,26 @@ impl<'de> DeserializeState<'de, MyEnum> for Struct {
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("struct InnerStruct")
             }
-
+            
             fn visit_map<V>(self, mut map: V) -> Result<Struct, V::Error>
             where
                 V: MapAccess<'de>,
             {
                 println!("Internal Seed {:?}", self.0);
                 println!("Internal visit map called for InnerStruct");
-                let (_, val) = map.next_entry::<String, i32>()?.unwrap();
-                println!("val: {:?}", val);
+                let (k, val) = map.next_entry::<String, i32>()?.unwrap();
+                println!("k {}  val: {:?}", k, val);
 
                 let (_, val2) = map.next_entry::<String, MyEnum>()?.unwrap();
                 println!("{:?}", val2);
 
+                // 
                 let (opt3, inner_val_inner) = map.next_entry::<String, Inner2>()?.unwrap();
-                
-                // map.
+
                 let seed = self.0;
 
-                // Inner2::deserialize_state(&mut seed, map);
+                // map.
+                // Inner2::deserialize_state(&mut seed, &mut deserializer.clone()).unwrap();
 
                 // let mut deserializer = serde_json::Deserializer::from_slice(&buffer);
                 // // let mut seed = 0;
@@ -104,12 +107,10 @@ impl<'de> DeserializeState<'de, MyEnum> for Struct {
                     val3: inner_val_inner,
                 })
             }
-            // fn visit_
         }
 
-        const FIELDS: &'static [&'static str] = &["value", "value2", "value3"];
+        const FIELDS: &'static [&'static str] = &["val", "val2", "val3"];
         deserializer.deserialize_struct("Struct", FIELDS, InnerStruct(*seed))
-
     }
 }
 
@@ -138,7 +139,6 @@ impl<'de> Deserialize<'de> for Inner2 {
                 V: MapAccess<'de>,
             {
                 println!("Inside visit_Map Inner2Visitor2 ");
-                // println!("inside Visit map for Inner2 {:?} ", self.0);
                 let inner_val;
                 if let Some((_, inner_val_inner)) = map.next_entry::<String, u64>()? {
                     println!("Inside inner_val_key");
@@ -187,7 +187,6 @@ impl<'de> Deserialize<'de> for Inner2 {
 // ██ ██   ████ ██   ████ ███████ ██   ██ ███████     ██████  ███████
 
 struct Inner2Visitor(MyEnum);
-
 impl<'de> DeserializeState<'de, MyEnum> for Inner2 {
     fn deserialize_state<D>(seed: &mut MyEnum, deserializer: D) -> Result<Self, D::Error>
     where
@@ -270,6 +269,7 @@ enum MyEnum {
 }
 
 pub fn main() {
+
     let struct_s = Struct {
         val: 0,
         val2: MyEnum::Variant1,
@@ -293,9 +293,15 @@ pub fn main() {
         println!("String Buffer {} ", string_buff);
         println!("Buffer ========");
     }
+        println!("=======================================");
+        println!("== Deserialize ==");
+        println!("=======================================");
 
     {
         let mut deserializer = serde_json::Deserializer::from_slice(&buffer);
+
+        
+
         // let mut seed = 0;
         let mut seed_enum = MyEnum::Variant2;
         println!("Input ! {:?}", struct_s);
